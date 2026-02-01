@@ -127,7 +127,6 @@ def compute_policy_loss_opmd(
         loss_agg_mode (str, optional):
             Aggregation mode for `agg_loss`. Defaults to "seq-mean-token-mean".
         config: Actor configuration containing pmd_tau parameter
-        rollout_is_weights: Not used in PMD
             
     Returns:
         tuple: (pg_loss, pg_clipfrac, ppo_kl, pg_clipfrac_lower)
@@ -138,7 +137,6 @@ def compute_policy_loss_opmd(
     
     # Get PMD-specific hyperparameters
     pmd_tau = config.policy_loss.get("pmd_tau", 0.01) if hasattr(config, "policy_loss") and config.policy_loss is not None else 0.01
-    
     # Compute sequence-level quantities
     # For PMD, we work at sequence level: sum over tokens, then mean over batch
     response_lengths = torch.sum(response_mask, dim=-1).clamp(min=1)  # (batch_size,)
@@ -150,15 +148,8 @@ def compute_policy_loss_opmd(
     
     # Sequence-level advantages and weights
     seq_advantages = torch.sum(advantages * response_mask, dim=-1) / response_lengths  # (batch_size,)
-    # Try to get partition_weights from extra_loss_kwargs first, then from config
     if extra_loss_kwargs is not None and "partition_weights" in extra_loss_kwargs:
         partition_weights = extra_loss_kwargs["partition_weights"]
-    elif hasattr(config, 'extra_loss_data') and "partition_weights" in config.extra_loss_data:
-        partition_weights = config.extra_loss_data["partition_weights"]
-    else:
-        partition_weights = None
-
-    if partition_weights is not None:
         seq_partition_weights = torch.sum(partition_weights * response_mask, dim=-1) / response_lengths
     else:
         seq_partition_weights = torch.ones_like(seq_advantages)
@@ -178,6 +169,10 @@ def compute_policy_loss_opmd(
         pg_loss = weighted_loss / max_response_length
     else: 
         raise NotImplementedError
+    
+    if rollout_is_weights is not None:
+        pg_loss = pg_loss * rollout_is_weights
+    
     # Compute KL(pi_old || pi_theta) for monitoring (sequence-level to match loss)
     seq_kl = -seq_log_prob_ratio / response_lengths  # Normalize by length
     ppo_kl = torch.mean(seq_kl)
@@ -185,5 +180,11 @@ def compute_policy_loss_opmd(
     # PMD doesn't use clipping, so clipfracs are zero
     pg_clipfrac = torch.tensor(0.0, device=pg_loss.device)
     pg_clipfrac_lower = torch.tensor(0.0, device=pg_loss.device)
+
+    pg_metrics = {
+        "actor/pg_clipfrac": pg_clipfrac.detach().item(),
+        "actor/ppo_kl": ppo_kl.detach().item(),
+        "actor/pg_clipfrac_lower": pg_clipfrac_lower.detach().item(),
+    }
     
-    return pg_loss, pg_clipfrac, ppo_kl, pg_clipfrac_lower
+    return pg_loss, pg_metrics
