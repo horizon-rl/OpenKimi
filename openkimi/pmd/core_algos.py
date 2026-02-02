@@ -101,7 +101,7 @@ def compute_partition_loo_outcome_advantage(
     return adv, adv
 
 
-@register_policy_loss("opmd")
+@register_policy_loss("opmd")  # type: ignore[arg-type]
 def compute_policy_loss_opmd(
     old_log_prob: torch.Tensor,
     log_prob: torch.Tensor,
@@ -111,7 +111,7 @@ def compute_policy_loss_opmd(
     config: Optional[DictConfig | AlgoConfig] = None,
     rollout_is_weights: torch.Tensor | None = None,
     extra_loss_kwargs: dict[str, Any] | None = None,
-) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+) -> tuple[torch.Tensor, dict[str, Any]]:
     """
     Online Policy Mirror Descent.
     

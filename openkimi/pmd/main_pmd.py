@@ -30,6 +30,9 @@ from verl.utils.config import validate_config
 from verl.utils.device import auto_set_device, is_cuda_available
 from verl.trainer.main_ppo import create_rl_dataset, create_rl_sampler
 
+# Import custom PMD algorithms to register them globally
+from openkimi.pmd import core_algos  # noqa: F401
+
 
 @hydra.main(config_path="config", config_name="ppo_trainer", version_base=None)
 def main(config):
@@ -130,7 +133,13 @@ class TaskRunner:
         if use_legacy_worker_impl == "disable":
             from verl.workers.engine_workers import ActorRolloutRefWorker
 
-            actor_rollout_cls = ActorRolloutRefWorker
+            class PMDActorRolloutRefWorker(ActorRolloutRefWorker):
+                def __init__(self, *args, **kwargs):
+                    # Import custom PMD algorithms to register them in this worker process
+                    import openkimi.pmd.core_algos  # noqa: F401
+                    super().__init__(*args, **kwargs)
+
+            actor_rollout_cls = PMDActorRolloutRefWorker
             ray_worker_group_cls = RayWorkerGroup
             # NOTE: In new model engine, ref policy and actor rollout are in same ActorRolloutRefWorker,
             # while in legacy model engine, ref policy is in a separate ActorRolloutRefWorker.
@@ -147,13 +156,25 @@ class TaskRunner:
         if config.actor_rollout_ref.actor.strategy in {"fsdp", "fsdp2"}:
             from verl.workers.fsdp_workers import AsyncActorRolloutRefWorker
 
-            actor_rollout_cls = AsyncActorRolloutRefWorker
+            class PMDAsyncActorRolloutRefWorker(AsyncActorRolloutRefWorker):
+                def __init__(self, *args, **kwargs):
+                    # Import custom PMD algorithms to register them in this worker process
+                    import openkimi.pmd.core_algos  # noqa: F401
+                    super().__init__(*args, **kwargs)
+
+            actor_rollout_cls = PMDAsyncActorRolloutRefWorker
             ray_worker_group_cls = RayWorkerGroup
 
         elif config.actor_rollout_ref.actor.strategy == "megatron":
             from verl.workers.megatron_workers import AsyncActorRolloutRefWorker
 
-            actor_rollout_cls = AsyncActorRolloutRefWorker
+            class PMDAsyncActorRolloutRefWorker(AsyncActorRolloutRefWorker):
+                def __init__(self, *args, **kwargs):
+                    # Import custom PMD algorithms to register them in this worker process
+                    import openkimi.pmd.core_algos  # noqa: F401
+                    super().__init__(*args, **kwargs)
+
+            actor_rollout_cls = PMDAsyncActorRolloutRefWorker
             ray_worker_group_cls = RayWorkerGroup
 
         else:

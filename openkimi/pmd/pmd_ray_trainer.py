@@ -49,8 +49,8 @@ from verl.utils.metric import reduce_metrics
 from verl.utils.rollout_skip import RolloutSkip
 from verl.utils.checkpoint.checkpoint_manager import should_save_ckpt_esi
 
-# register custom advantage estimators (partition, ploo) and policy losses (pmd, opmd, apmd, cmdpo)
-import openkimi.pmd.core_algos
+# Import custom PMD algorithms to register them
+from openkimi.pmd import core_algos  # noqa: F401
 
 def compute_wpmd_weight(
     data: DataProto,
@@ -396,11 +396,6 @@ class RayPMDTrainer(RayPPOTrainer):
                         # compute weights for weighted PMD
                         if self.config.actor_rollout_ref.actor.policy_loss.get("loss_mode", "vanilla") in ["opmd"]:
                             batch = compute_wpmd_weight(batch, use_is=False, config=self.config.algorithm)
-
-                            # TODO: not elegant way to pass partition_weights to the actor
-                            if not hasattr(self.config.actor_rollout_ref.actor, 'extra_loss_data'):                                                               
-                                self.config.actor_rollout_ref.actor.extra_loss_data = {}                                                                          
-                            self.config.actor_rollout_ref.actor.extra_loss_data['partition_weights'] = batch.batch['partition_weights']  
                         #########################################################
 
                     # update critic
