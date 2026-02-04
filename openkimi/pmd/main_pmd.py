@@ -74,12 +74,16 @@ def run_ppo(config, task_runner_class=None) -> None:
             runtime_env_kwargs["env_vars"] = runtime_env_vars
 
         runtime_env = OmegaConf.merge(default_runtime_env, runtime_env_kwargs)
-        ray_init_kwargs = OmegaConf.create({**ray_init_kwargs, "runtime_env": runtime_env})
+        ray_init_kwargs = OmegaConf.create(
+            {**ray_init_kwargs, "runtime_env": runtime_env}
+        )
         print(f"ray init kwargs: {ray_init_kwargs}")
         ray.init(**OmegaConf.to_container(ray_init_kwargs))
 
     if task_runner_class is None:
-        task_runner_class = ray.remote(num_cpus=1)(TaskRunner)  # please make sure main_task is not scheduled on head
+        task_runner_class = ray.remote(num_cpus=1)(
+            TaskRunner
+        )  # please make sure main_task is not scheduled on head
 
     # Create a remote instance of the TaskRunner class, and
     # Execute the `run` method of the TaskRunner instance remotely and wait for it to complete
@@ -91,11 +95,15 @@ def run_ppo(config, task_runner_class=None) -> None:
     ):
         from verl.utils.import_utils import is_nvtx_available
 
-        assert is_nvtx_available(), "nvtx is not available in CUDA platform. Please 'pip3 install nvtx'"
+        assert (
+            is_nvtx_available()
+        ), "nvtx is not available in CUDA platform. Please 'pip3 install nvtx'"
         nsight_options = OmegaConf.to_container(
             config.global_profiler.global_tool_config.nsys.controller_nsight_options
         )
-        runner = task_runner_class.options(runtime_env={"nsight": nsight_options}).remote()
+        runner = task_runner_class.options(
+            runtime_env={"nsight": nsight_options}
+        ).remote()
     else:
         runner = task_runner_class.remote()
     ray.get(runner.run.remote(config))
@@ -137,13 +145,17 @@ class TaskRunner:
                 def __init__(self, *args, **kwargs):
                     # Import custom PMD algorithms to register them in this worker process
                     import openkimi.pmd.core_algos  # noqa: F401
+
                     super().__init__(*args, **kwargs)
 
             actor_rollout_cls = PMDActorRolloutRefWorker
             ray_worker_group_cls = RayWorkerGroup
             # NOTE: In new model engine, ref policy and actor rollout are in same ActorRolloutRefWorker,
             # while in legacy model engine, ref policy is in a separate ActorRolloutRefWorker.
-            if config.algorithm.use_kl_in_reward or config.actor_rollout_ref.actor.use_kl_loss:
+            if (
+                config.algorithm.use_kl_in_reward
+                or config.actor_rollout_ref.actor.use_kl_loss
+            ):
                 role = Role.ActorRolloutRef
             else:
                 role = Role.ActorRollout
@@ -160,6 +172,7 @@ class TaskRunner:
                 def __init__(self, *args, **kwargs):
                     # Import custom PMD algorithms to register them in this worker process
                     import openkimi.pmd.core_algos  # noqa: F401
+
                     super().__init__(*args, **kwargs)
 
             actor_rollout_cls = PMDAsyncActorRolloutRefWorker
@@ -172,6 +185,7 @@ class TaskRunner:
                 def __init__(self, *args, **kwargs):
                     # Import custom PMD algorithms to register them in this worker process
                     import openkimi.pmd.core_algos  # noqa: F401
+
                     super().__init__(*args, **kwargs)
 
             actor_rollout_cls = PMDAsyncActorRolloutRefWorker
@@ -197,7 +211,9 @@ class TaskRunner:
                 CriticWorker = TrainingWorker
                 print("Using new worker implementation")
             else:
-                raise ValueError(f"Invalid use_legacy_worker_impl: {use_legacy_worker_impl}")
+                raise ValueError(
+                    f"Invalid use_legacy_worker_impl: {use_legacy_worker_impl}"
+                )
 
         elif config.critic.strategy == "megatron":
             # TODO: switch this to TrainingWorker as well
@@ -221,16 +237,22 @@ class TaskRunner:
         # TODO Here you can use the new registration method to support dynamic registration of roles
         if config.reward_model.enable_resource_pool:
             if config.reward_model.n_gpus_per_node <= 0:
-                raise ValueError("config.reward_model.n_gpus_per_node must be greater than 0")
+                raise ValueError(
+                    "config.reward_model.n_gpus_per_node must be greater than 0"
+                )
             if config.reward_model.nnodes <= 0:
                 raise ValueError("config.reward_model.nnodes must be greater than 0")
 
-            reward_pool = [config.reward_model.n_gpus_per_node] * config.reward_model.nnodes
+            reward_pool = [
+                config.reward_model.n_gpus_per_node
+            ] * config.reward_model.nnodes
             resource_pool_spec["reward_pool"] = reward_pool
 
         from verl.trainer.ppo.ray_trainer import ResourcePoolManager
 
-        resource_pool_manager = ResourcePoolManager(resource_pool_spec=resource_pool_spec, mapping=self.mapping)
+        resource_pool_manager = ResourcePoolManager(
+            resource_pool_spec=resource_pool_spec, mapping=self.mapping
+        )
         return resource_pool_manager
 
     def add_reward_model_worker(self, config):
@@ -238,7 +260,9 @@ class TaskRunner:
         from verl.trainer.ppo.ray_trainer import Role
 
         if config.reward_model.enable:
-            use_legacy_worker_impl = config.trainer.get("use_legacy_worker_impl", "auto")
+            use_legacy_worker_impl = config.trainer.get(
+                "use_legacy_worker_impl", "auto"
+            )
             if use_legacy_worker_impl in ["auto", "enable", "disable"]:
                 if config.reward_model.strategy in {"fsdp", "fsdp2"}:
                     from verl.workers.fsdp_workers import RewardModelWorker
@@ -251,7 +275,9 @@ class TaskRunner:
             #
             #     print("Using new worker implementation")
             else:
-                raise ValueError(f"Invalid use_legacy_worker_impl: {use_legacy_worker_impl}")
+                raise ValueError(
+                    f"Invalid use_legacy_worker_impl: {use_legacy_worker_impl}"
+                )
 
             self.role_worker_mapping[Role.RewardModel] = ray.remote(RewardModelWorker)
             if config.reward_model.enable_resource_pool:
@@ -269,7 +295,10 @@ class TaskRunner:
         if use_legacy_worker_impl == "disable":
             return
 
-        if config.algorithm.use_kl_in_reward or config.actor_rollout_ref.actor.use_kl_loss:
+        if (
+            config.algorithm.use_kl_in_reward
+            or config.actor_rollout_ref.actor.use_kl_loss
+        ):
             self.role_worker_mapping[Role.RefPolicy] = ray.remote(ref_policy_cls)
             self.mapping[Role.RefPolicy] = "global_pool"
 
@@ -318,7 +347,8 @@ class TaskRunner:
         # Download the checkpoint from HDFS to the local machine.
         # `use_shm` determines whether to use shared memory, which could lead to faster model loading if turned on
         local_path = copy_to_local(
-            config.actor_rollout_ref.model.path, use_shm=config.actor_rollout_ref.model.get("use_shm", False)
+            config.actor_rollout_ref.model.path,
+            use_shm=config.actor_rollout_ref.model.get("use_shm", False),
         )
 
         # Instantiate the tokenizer and processor.
@@ -327,14 +357,22 @@ class TaskRunner:
         trust_remote_code = config.data.get("trust_remote_code", False)
         tokenizer = hf_tokenizer(local_path, trust_remote_code=trust_remote_code)
         # Used for multimodal LLM, could be None
-        processor = hf_processor(local_path, trust_remote_code=trust_remote_code, use_fast=True)
+        processor = hf_processor(
+            local_path, trust_remote_code=trust_remote_code, use_fast=True
+        )
 
         # Load the reward manager for training and validation.
         reward_fn = load_reward_manager(
-            config, tokenizer, num_examine=0, **config.reward_model.get("reward_kwargs", {})
+            config,
+            tokenizer,
+            num_examine=0,
+            **config.reward_model.get("reward_kwargs", {}),
         )
         val_reward_fn = load_reward_manager(
-            config, tokenizer, num_examine=1, **config.reward_model.get("reward_kwargs", {})
+            config,
+            tokenizer,
+            num_examine=1,
+            **config.reward_model.get("reward_kwargs", {}),
         )
 
         resource_pool_manager = self.init_resource_pool_mgr(config)
@@ -380,6 +418,7 @@ class TaskRunner:
 
         # Start the training process.
         trainer.fit()
+
 
 if __name__ == "__main__":
     main()
