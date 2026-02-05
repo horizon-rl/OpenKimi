@@ -52,9 +52,9 @@ For full multi-node examples, see:
 
 ## Results
 
-[30B PMD results (PDF)](../../asset/30b_results.pdf)
+[30B PMD results (PDF)](../../assets/30b_results.pdf)
 
-![30B PMD results](../../asset/30b_results.png)
+![30B PMD results](../../assets/30b_results.png)
 
 ## Key configs
 
