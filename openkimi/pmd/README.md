@@ -50,6 +50,12 @@ For full multi-node examples, see:
 - `examples/math/run_pmd_dapo17k_qwen25-7b.sh`
 - `examples/math/run_pmd_dapo17k_qwen3-30b-a3b.sh`
 
+## Results
+
+[30B PMD results (PDF)](../../asset/30b_results.pdf)
+
+![30B PMD results](../../asset/30b_results.png)
+
 ## Key configs
 
 | Config key | Typical value | Effect |
@@ -59,7 +65,7 @@ For full multi-node examples, see:
 | `algorithm.partition_reward_lb` | `null` | Optional prompt-level lower bound filter |
 | `algorithm.partition_reward_ub` | `null` | Optional prompt-level upper bound filter |
 | `actor_rollout_ref.actor.policy_loss.loss_mode` | `opmd` | Enable PMD policy loss |
-| `actor_rollout_ref.actor.policy_loss.pmd_tau` | `0.01` | PMD regularization parameter |
+| `actor_rollout_ref.actor.policy_loss.pmd_tau` | `0.01` | PMD regularization parameter, typically set equal to `partition_tau` |
 | `actor_rollout_ref.actor.loss_agg_mode` | `seq-mean-token-mean` | Sequence loss normalization mode |
 
 ## File map
