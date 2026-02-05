@@ -12,12 +12,10 @@ export RAY_LOG_TO_DRIVER=1
 export RAY_LOGGING_LEVEL=INFO
 
 WORKING_DIR=${WORKING_DIR:-"${PWD}"}
-RUNTIME_ENV=${RUNTIME_ENV:-"${WORKING_DIR}/openkimi/pmd/runtime_env.yaml"}
+RUNTIME_ENV=${RUNTIME_ENV:-"${WORKING_DIR}/examples/math/runtime_env.yaml"}
 
-kl_loss_coef=0.001
-MAX_STALENESS=5
+KL_LOSS_COEF=0.001
 PPO_EPOCHS=1
-SEQUENCE_PARALLEL=2
 ACTOR_LR=${ACTOR_LR:-1e-6}
 
 LOSS_AGG_MODE=${LOSS_AGG_MODE:-seq-mean-token-mean}
@@ -33,14 +31,22 @@ CRITIC_VALUE_LOSS_TYPE=${CRITIC_VALUE_LOSS_TYPE:-mle}
 PROMPT_LENGTH=${PROMPT_LENGTH:-2048}
 RESPONSE_LENGTH=${RESPONSE_LENGTH:-8192}
 MAX_MODEL_LEN=$((PROMPT_LENGTH + RESPONSE_LENGTH))
+
+TP_SIZE=${TP_SIZE:-4}
+PP_SIZE=${PP_SIZE:-1}
+EP_SIZE=${EP_SIZE:-8}
+CP_SIZE=${CP_SIZE:-1}
+VP_SIZE=${VP_SIZE:-null}
+ROLLOUT_TP_SIZE=${ROLLOUT_TP_SIZE:-1}
+
 ACTOR_PPO_MAX_TOKEN_LEN_PER_GPU=${ACTOR_PPO_MAX_TOKEN_LEN_PER_GPU:-$((MAX_MODEL_LEN * 2))}
 INFER_PPO_MAX_TOKEN_LEN_PER_GPU=${INFER_PPO_MAX_TOKEN_LEN_PER_GPU:-$((MAX_MODEL_LEN * 3))}
 
-N_NODES=${N_NODES:-1}
+N_NODES=${N_NODES:-4}
 PROJECT_NAME=${PROJECT_NAME:-verl_dapo_pmd}
 EXP_NAME=qwen2_5_7b_${POLICY_LOSS_MODE}ln_adv${ADV_ESTIMATOR}_stal${MAX_STALENESS}bsz512_mbsz32_n16_ep${PPO_EPOCHS}_t${PMD_TAU}_lr${ACTOR_LR}_ro${RESET_OPTIMIZER_FREQ}
 
-MODEL_PATH="Qwen/Qwen2.5-7B"
+MODEL_PATH="Qwen/Qwen3-30B-A3B-Base"
 TRAIN_DATA="${DATA_DIR}/data/dapo-math-17k.parquet"
 VAL_DATA="["${DATA_DIR}/data/aime-2024-repeat1.parquet","${DATA_DIR}/data/aime-2025-repeat1.parquet"]"
 
@@ -48,7 +54,7 @@ ray job submit --runtime-env="${RUNTIME_ENV}" \
     --working-dir "${WORKING_DIR}" \
     -- python3 -m openkimi.pmd.main_pmd \
     --config-path "${WORKING_DIR}/verl/verl/trainer/config" \
-    --config-name ppo_trainer \
+    --config-name ppo_megatron_trainer \
     algorithm.adv_estimator=$ADV_ESTIMATOR \
     +algorithm.partition_tau=${PMD_TAU} \
     +algorithm.partition_reward_lb=${PMD_REWARD_LB} \
@@ -70,16 +76,21 @@ ray job submit --runtime-env="${RUNTIME_ENV}" \
     actor_rollout_ref.model.enable_gradient_checkpointing=True \
     actor_rollout_ref.model.use_remove_padding=True \
     actor_rollout_ref.nccl_timeout=3600 \
-    actor_rollout_ref.actor.fsdp_config.param_offload=true \
-    actor_rollout_ref.actor.fsdp_config.optimizer_offload=true \
-    actor_rollout_ref.actor.fsdp_config.fsdp_size=-1 \
+    actor_rollout_ref.actor.megatron.param_offload=true \
+    actor_rollout_ref.actor.megatron.optimizer_offload=true \
+    actor_rollout_ref.actor.megatron.grad_offload=true \
+    actor_rollout_ref.actor.megatron.pipeline_model_parallel_size=${PP_SIZE} \
+    actor_rollout_ref.actor.megatron.tensor_model_parallel_size=${TP_SIZE} \
+    actor_rollout_ref.actor.megatron.expert_model_parallel_size=${EP_SIZE} \
+    actor_rollout_ref.actor.megatron.context_parallel_size=${CP_SIZE} \
+    actor_rollout_ref.actor.megatron.virtual_pipeline_model_parallel_size=${VP_SIZE} \
+    actor_rollout_ref.actor.megatron.use_mbridge=True \
     actor_rollout_ref.actor.optim.lr=${ACTOR_LR} \
     actor_rollout_ref.actor.ppo_mini_batch_size=32 \
     actor_rollout_ref.actor.use_kl_loss=false \
-    actor_rollout_ref.actor.kl_loss_coef=$kl_loss_coef \
+    actor_rollout_ref.actor.kl_loss_coef=$KL_LOSS_COEF \
     actor_rollout_ref.actor.kl_loss_type=low_var_kl \
     actor_rollout_ref.actor.entropy_coeff=0 \
-    actor_rollout_ref.actor.ulysses_sequence_parallel_size=$SEQUENCE_PARALLEL \
     actor_rollout_ref.actor.use_dynamic_bsz=true \
     actor_rollout_ref.actor.ppo_max_token_len_per_gpu=${ACTOR_PPO_MAX_TOKEN_LEN_PER_GPU} \
     +actor_rollout_ref.actor.ppo_infer_max_token_len_per_gpu=${ACTOR_PPO_INFER_MAX_TOKEN_LEN_PER_GPU} \
@@ -111,8 +122,14 @@ ray job submit --runtime-env="${RUNTIME_ENV}" \
     actor_rollout_ref.rollout.val_kwargs.top_p=0.7 \
     actor_rollout_ref.ref.log_prob_micro_batch_size_per_gpu=2 \
     actor_rollout_ref.ref.log_prob_max_token_len_per_gpu=${INFER_PPO_MAX_TOKEN_LEN_PER_GPU} \
-    actor_rollout_ref.ref.fsdp_config.param_offload=true \
-    actor_rollout_ref.ref.ulysses_sequence_parallel_size=$SEQUENCE_PARALLEL \
+    actor_rollout_ref.ref.megatron.pipeline_model_parallel_size=${PP_SIZE} \
+    actor_rollout_ref.ref.megatron.tensor_model_parallel_size=${TP_SIZE} \
+    actor_rollout_ref.ref.megatron.expert_model_parallel_size=${EP_SIZE} \
+    actor_rollout_ref.ref.megatron.context_parallel_size=${CP_SIZE} \
+    actor_rollout_ref.ref.megatron.virtual_pipeline_model_parallel_size=${VP_SIZE} \
+    actor_rollout_ref.ref.megatron.param_offload=true \
+    actor_rollout_ref.ref.megatron.optimizer_offload=true \
+    actor_rollout_ref.ref.megatron.grad_offload=true \
     critic.enable=false \
     +critic.value_loss_type=${CRITIC_VALUE_LOSS_TYPE} \
     reward_model.enable=false \
