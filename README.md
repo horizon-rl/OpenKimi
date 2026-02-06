@@ -1,10 +1,10 @@
 # OpenKimi
 
-[![arXiv](https://img.shields.io/badge/arXiv-2602.05933-b31b1b.svg?style=plastic)](https://arxiv.org/abs/2602.05933)
-[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg?style=flat-square)](LICENSE)
+[![arXiv](https://img.shields.io/badge/arXiv-2602.05933-b31b1b.svg?style=flat-square)](https://arxiv.org/abs/2602.05933)
 
 
-OpenKimi is a research project that implements the reinforcement learning (RL) algorithms and efficient rollout system used in [Kimi-K2](https://github.com/MoonshotAI/Kimi-K2) and [Kimi-K1.5](https://github.com/MoonshotAI/Kimi-k1.5). Fascinated by the strong performance of Kimi-series models, this project provides theoretical understanding of Policy Mirror Descent (PMD) algorithms that differ from other policy gradient methods like GRPO, along with practical training recipes that achieve superior performance and time efficiency for various downstream tasks. OpenKimi enables both algorithmic exploration for RL fine-tuning and system efficiency research for accelerating rollout in asynchronous RL.  
+OpenKimi is a research project that implements the reinforcement learning (RL) algorithms and efficient rollout system used in [Kimi-K2](https://github.com/MoonshotAI/Kimi-K2) and [Kimi-K1.5](https://github.com/MoonshotAI/Kimi-k1.5) by @MoonshotAI. Fascinated by the strong performance of Kimi-series models, this project provides theoretical understanding of Policy Mirror Descent (PMD) algorithms that differ from other policy gradient methods like GRPO, along with practical training recipes that achieve superior performance and time efficiency for various downstream tasks. OpenKimi enables both algorithmic exploration for RL fine-tuning and system efficiency research for accelerating rollout in asynchronous RL.  
 
 ## Quick Start
 
